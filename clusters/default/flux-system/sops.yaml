@@ -6,5 +6,11 @@ metadata:
 type: Opaque
 stringData:
   age.agekey: |
-    age1qmghm4s7u0n5y0h6pn9jr9ljskwwetn4u6td7d9dv02regtzpy4sgctrqm
+    # IMPORTANT: Replace this with your PRIVATE key from age.agekey file
+    # The private key starts with: AGE-SECRET-KEY-1...
+    # NOT the public key (age1...)
+    # 
+    # To get your private key, run: cat age.agekey
+    # Copy the entire line that starts with AGE-SECRET-KEY-1...
+    AGE-SECRET-KEY-1qmghm4s7u0n5y0h6pn9jr9ljskwwetn4u6td7d9dv02regtzpy4sgctrqm
 
