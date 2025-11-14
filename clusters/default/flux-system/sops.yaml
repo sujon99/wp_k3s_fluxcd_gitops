@@ -7,17 +7,7 @@ type: Opaque
 stringData:
   age.agekey: |
     age1qmghm4s7u0n5y0h6pn9jr9ljskwwetn4u6td7d9dv02regtzpy4sgctrqm
-    # Replace with your age PRIVATE key from age.agekey file
     # The private key starts with: AGE-SECRET-KEY-1...
     # NOT the public key (age1...)
----
-apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
-kind: Decryption
-metadata:
-  name: sops-decrypt
-  namespace: flux-system
-spec:
-  provider: sops
-  secretRef:
-    name: sops-age
+    AGE-SECRET-KEY-1YOUR_PRIVATE_KEY_HERE
 
