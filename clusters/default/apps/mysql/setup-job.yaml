@@ -1,0 +1,47 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mysql-user-setup
+  namespace: mysql
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mysql-setup
+        image: mysql:8.0
+        command:
+        - /bin/bash
+        - -c
+        - |
+          until mysqladmin ping -h mysql.mysql.svc.cluster.local -uroot -p$MYSQL_ROOT_PASSWORD --silent; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          mysql -h mysql.mysql.svc.cluster.local -uroot -p$MYSQL_ROOT_PASSWORD <<EOF
+          CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
+          GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
+          FLUSH PRIVILEGES;
+          EOF
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_ROOT_PASSWORD
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_PASSWORD
+        - name: MYSQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: mysql-secret
+              key: MYSQL_DATABASE
+
