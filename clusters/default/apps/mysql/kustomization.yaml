@@ -6,5 +6,4 @@ resources:
   - secret.yaml
   - deployment.yaml
   - service.yaml
-  - setup-job.yaml
 
