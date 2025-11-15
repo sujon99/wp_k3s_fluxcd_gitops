@@ -18,32 +18,21 @@ spec:
       service:
         type: LoadBalancer
       config:
-        http-snippet: |
-          init_by_lua_block {
-            local original_header_filter = header_filter_by_lua_block
-          }
-          header_filter_by_lua_block {
-            if ngx.status == 404 then
-              ngx.header["Location"] = "https://www.google.com"
-              ngx.status = 302
-              ngx.header.content_length = nil
-              ngx.header.content_type = nil
-              return
-            end
-          }
         server-snippet: |
-          header_filter_by_lua_block {
-            if ngx.status == 404 then
-              ngx.header["Location"] = "https://www.google.com"
-              ngx.status = 302
-              ngx.header.content_length = nil
-              ngx.header.content_type = nil
-            end
-          }
-          body_filter_by_lua_block {
-            if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
-              ngx.arg[1] = ""
-              ngx.arg[2] = true
-            end
+          location ~ ^/ {
+            header_filter_by_lua_block {
+              if ngx.status == 404 then
+                ngx.header["Location"] = "https://www.google.com"
+                ngx.status = 302
+                ngx.header.content_length = nil
+                ngx.header.content_type = nil
+              end
+            }
+            body_filter_by_lua_block {
+              if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
+                ngx.arg[1] = ""
+                ngx.arg[2] = true
+              end
+            }
           }
 
