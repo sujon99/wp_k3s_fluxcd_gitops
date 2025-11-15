@@ -1,6 +1,6 @@
 # WordPress on k3s with FluxCD GitOps
 
-This project deploys a WordPress application on k3s using FluxCD for GitOps automation. The setup includes MySQL database, MetalLB for load balancing, and NGINX Ingress Controller.
+This project deploys a WordPress application on k3s using FluxCD for GitOps automation. The setup includes MySQL database, MetalLB for load balancing, NGINX Ingress Controller with custom Lua plugin for 404 redirects.
 
 ## Architecture
 
@@ -9,8 +9,15 @@ This project deploys a WordPress application on k3s using FluxCD for GitOps auto
 - **MySQL 8.0**: Database backend with automatic user provisioning
 - **WordPress**: Latest WordPress container image
 - **MetalLB**: Load balancer for bare-metal k3s clusters
-- **NGINX Ingress**: Ingress controller for routing traffic
+- **NGINX Ingress**: Ingress controller with custom Lua plugin
 - **SOPS + Age**: Encrypted secrets management
+
+## Key Features
+
+- **Custom 404 Redirect**: Ingress-NGINX Lua plugin redirects all 404 responses to google.com
+- **Automatic MySQL User Provisioning**: MySQL deployment includes lifecycle hooks for automatic database setup
+- **Encrypted Secrets**: All sensitive data encrypted using SOPS with Age encryption
+- **GitOps Workflow**: All changes managed through Git with FluxCD auto-sync
 
 ## Project Structure
 
@@ -31,28 +38,25 @@ clusters/default/
 │       ├── namespace.yaml        # WordPress namespace
 │       └── kustomization.yaml
 ├── infrastructure/
-│   ├── metallb/                  # MetalLB load balancer
-│   ├── ingress-nginx/            # NGINX Ingress Controller
-│   └── helmrepositories/         # Helm repository definitions
-└── flux-system/                  # FluxCD configuration
-    ├── gotk-sync.yaml           # Git sync configuration
-    └── sops.yaml                 # SOPS decryption secret
+│   ├── metallb/
+│   │   └── config/          # MetalLB IP pool configuration
+│   ├── ingress-nginx/
+│   │   ├── lua-redirect-plugin.yaml  # Custom Lua plugin for 404 redirects
+│   │   ├── default-backend.yaml
+│   │   └── helmrelease.yaml
+│   └── helmrepositories/
+└── flux-system/
+    ├── gotk-sync.yaml
+    └── sops.yaml
 ```
-
-## Key Features
-
-- **Automatic MySQL User Provisioning**: The MySQL deployment includes a `postStart` lifecycle hook that automatically creates the WordPress database user and grants necessary privileges, eliminating the need for manual database setup.
-- **Encrypted Secrets**: All sensitive data is encrypted using SOPS with Age encryption.
-- **GitOps Workflow**: All changes are managed through Git, with FluxCD automatically syncing and applying updates.
 
 ## Prerequisites
 
 - k3s installed and running
 - kubectl configured
 - flux CLI installed
-- sops installed
-- age installed
-- GitHub account (for GitOps repository)
+- sops and age installed (for secret encryption)
+- GitHub account with repository
 
 ## Setup Steps
 
@@ -69,328 +73,198 @@ sudo kubectl get nodes
 curl -s https://fluxcd.io/install.sh | sudo bash
 ```
 
-### 3. Generate Age Key for SOPS
+### 3. Configure Secrets
 
-```bash
-age-keygen -o age.agekey
-```
+Update `clusters/default/flux-system/sops.yaml` with your Age private key.
 
-Copy the public key (starts with `age1...`) and private key content.
+### 4. Update Configuration Files
 
-### 4. Configure SOPS
-
-Update `.sops.yaml` with age public key:
-
+**Update Git Repository URL:**
+Edit `clusters/default/flux-system/gotk-sync.yaml`:
 ```yaml
-creation_rules:
-  - path_regex: .*secret.*\.yaml$
-    encrypted_regex: ^(data|stringData)$
-    age: age1PUBLIC_KEY_HERE
+url: https://github.com/sujon99/wp_k3s_fluxcd_gitops
 ```
 
-### 5. Encrypt Secrets
-
-Create unencrypted secret files first, then encrypt them:
-
-**MySQL Secret** (`clusters/default/apps/mysql/secret.yaml`):
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: mysql-secret
-  namespace: mysql
-type: Opaque
-stringData:
-  MYSQL_ROOT_PASSWORD: rootpassword123
-  MYSQL_DATABASE: wordpress
-  MYSQL_USER: wordpress
-  MYSQL_PASSWORD: wordpress123
-```
-
-**WordPress Secret** (`clusters/default/apps/wordpress/secret.yaml`):
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: wordpress-db-secret
-  namespace: wordpress
-type: Opaque
-stringData:
-  MYSQL_DATABASE: wordpress
-  MYSQL_USER: wordpress
-  MYSQL_PASSWORD: wordpress123
-```
-
-Encrypt both secrets:
-```bash
-sops -e -i clusters/default/apps/mysql/secret.yaml
-sops -e -i clusters/default/apps/wordpress/secret.yaml
-```
-
-### 6. Update FluxCD Configuration
-
-Update `clusters/default/flux-system/gotk-sync.yaml` with GitHub repository:
-
-```yaml
-url: https://github.com/...
-```
-
-Update `clusters/default/flux-system/sops-decryption.yaml` with age private key:
-
-```yaml
-stringData:
-  age.agekey: |
-    # Paste private key from age.agekey file here
-```
-
-### 7. Update MetalLB IP Pool
-
-Edit `clusters/default/infrastructure/metallb/ipaddresspool.yaml` and set IP range matching with network:
-
+**Update MetalLB IP Pool:**
+Edit `clusters/default/infrastructure/metallb/config/ipaddresspool.yaml`:
 ```yaml
 addresses:
-- 192.168.1.240-192.168.1.250  # Change to network range
+- 172.18.60.200-172.18.60.220  # Change to your network range
 ```
 
-### 8. Push to GitHub
+### 5. Push to GitHub
 
 ```bash
-git init
 git add .
 git commit -m "Initial commit"
-git remote add origin https://github.com/....
+git remote add origin https://github.com/sujon99/wp_k3s_fluxcd_gitops.git
 git push -u origin main
 ```
 
-### 9. Bootstrap FluxCD
+### 6. Bootstrap FluxCD
 
 ```bash
+# Create flux-system namespace first
+kubectl create namespace flux-system
+
+# Bootstrap FluxCD
 flux bootstrap github \
-  --owner=USERNAME \
-  --repository=REPO \
+  --owner=sujon99 \
+  --repository=wp_k3s_fluxcd_gitops \
   --branch=main \
   --path=./clusters/default \
   --personal
 ```
 
-### 10. Configure /etc/hosts
+### 7. Apply GitRepository and Kustomization
 
-Add to `/etc/hosts` (or `C:\Windows\System32\drivers\etc\hosts` on Windows):
+If bootstrap fails to create GitRepository/Kustomization:
 
+```bash
+kubectl apply -f clusters/default/flux-system/gotk-sync.yaml
+flux reconcile source git flux-system
+flux reconcile kustomization flux-system
 ```
-<INGRESS_IP> app.local
+
+### 8. Deploy Infrastructure
+
+```bash
+# Deploy infrastructure (MetalLB, Ingress-NGINX)
+kubectl apply -k clusters/default/infrastructure/
+
+# Wait for ingress-nginx to be ready
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=controller -n ingress-nginx --timeout=300s
 ```
 
-Get ingress IP:
+### 9. Apply MetalLB IP Pool
+
+```bash
+# Apply MetalLB IP pool configuration
+kubectl apply -f clusters/default/infrastructure/metallb/config/ipaddresspool.yaml
+
+# Verify IP pool is created
+kubectl get ipaddresspool -n metallb-system
+kubectl get l2advertisement -n metallb-system
+```
+
+### 10. Deploy Applications
+
+```bash
+# Deploy applications (MySQL, WordPress)
+kubectl apply -k clusters/default/apps/
+
+# Or let FluxCD handle it
+flux reconcile kustomization flux-system
+```
+
+### 11. Get Ingress IP
+
 ```bash
 kubectl get svc -n ingress-nginx ingress-nginx-controller
 ```
 
-### 11. Verify Deployment
+### 12. Configure /etc/hosts
+
+Add to `/etc/hosts` (or `C:\Windows\System32\drivers\etc\hosts` on Windows):
+```
+<INGRESS_IP> app.local
+```
+
+### 13. Verify Deployment
 
 ```bash
-# Check FluxCD sync
-flux get kustomizations
-
-# Check pods
-kubectl get pods -A
+# Check all pods
+kubectl get pods --all-namespaces
 
 # Check ingress
-kubectl get ingress -n wordpress
+kubectl get ingress --all-namespaces
+
+# Test 404 redirect (should redirect to google.com)
+curl -I http://app.local/notfound
 ```
 
-### 12. Access WordPress
+## Custom 404 Redirect Feature
 
-Open browser: `http://app.local`
+The ingress-nginx controller includes a custom Lua plugin that redirects all 404 (Not Found) responses to `https://www.google.com`.
 
-## How It Works
+**Configuration:**
+- Lua plugin: `clusters/default/infrastructure/ingress-nginx/lua-redirect-plugin.yaml`
+- Ingress-NGINX config: `clusters/default/infrastructure/ingress-nginx/helmrelease.yaml`
 
-### MySQL Automatic User Provisioning
-
-The MySQL deployment includes a `postStart` lifecycle hook that automatically:
-1. Waits for MySQL to be ready (using `mysqladmin ping`)
-2. Creates the WordPress database user if it doesn't exist
-3. Grants all privileges on the WordPress database to the user
-4. Flushes privileges to apply changes
-
-This eliminates the need for manual database initialization or init containers. The lifecycle hook runs automatically after the MySQL container starts.
-
-### Database Connection
-
-WordPress connects to MySQL using the Kubernetes service DNS name:
-- Service: `mysql.mysql.svc.cluster.local`
-- Port: `3306`
-- Database credentials are provided via encrypted secrets
+**Test:**
+```bash
+curl -I http://app.local/notfound
+# Expected: HTTP/1.1 302 Moved Temporarily
+#           Location: https://www.google.com
+```
 
 ## Troubleshooting
-
-### Check FluxCD Status
-
-```bash
-# View all kustomizations
-flux get kustomizations
-
-# Check sync status
-flux get kustomizations -A
-
-# Force reconciliation
-flux reconcile kustomization flux-system
-flux reconcile kustomization infrastructure
-flux reconcile kustomization apps
-```
 
 ### Check Pod Status
 
 ```bash
-# View all pods
-kubectl get pods -A
-
-# Check MySQL pod logs
+kubectl get pods --all-namespaces
 kubectl logs -n mysql deployment/mysql
-
-# Check WordPress pod logs
 kubectl logs -n wordpress deployment/wordpress
-
-# Describe pod for events
-kubectl describe pod -n mysql <pod-name>
-kubectl describe pod -n wordpress <pod-name>
+kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller
 ```
 
 ### Check Services and Ingress
 
 ```bash
-# Check services
-kubectl get svc -A
-
-# Check ingress
-kubectl get ingress -A
-kubectl describe ingress -n wordpress wordpress
-
-# Check MetalLB
-kubectl get svc -n metallb-system
-kubectl get ipaddresspool -n metallb-system
+kubectl get svc --all-namespaces | grep LoadBalancer
+kubectl get ingress --all-namespaces
+kubectl describe ingress wordpress -n wordpress
 ```
 
-### Check Secrets
+### Check MetalLB
 
 ```bash
-# Verify secrets are decrypted (should show plain text)
-kubectl get secret -n mysql mysql-secret -o yaml
-kubectl get secret -n wordpress wordpress-db-secret -o yaml
+kubectl get ipaddresspool -n metallb-system
+kubectl get l2advertisement -n metallb-system
+```
+
+### Check FluxCD Status
+
+```bash
+flux get kustomizations
+flux reconcile source git flux-system
+flux reconcile kustomization flux-system
 ```
 
 ### Common Issues
 
-1. **MySQL pod not starting**: Check if secrets are properly decrypted
+1. **LoadBalancer IP is pending**: Apply MetalLB IP pool configuration
    ```bash
-   kubectl get secret -n mysql mysql-secret
+   kubectl apply -f clusters/default/infrastructure/metallb/config/ipaddresspool.yaml
    ```
 
-2. **WordPress can't connect to MySQL**: Verify service DNS and credentials
+2. **Ingress validation webhook errors**: Wait for ingress-nginx to be fully ready before deploying applications
+
+3. **Secrets not decrypted**: Verify SOPS age key in `clusters/default/flux-system/sops.yaml`
+
+4. **404 redirect not working**: Check ingress-nginx pod logs for Lua errors
    ```bash
-   kubectl exec -n wordpress deployment/wordpress -- nslookup mysql.mysql.svc.cluster.local
+   kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller | grep -i lua
    ```
 
-3. **Ingress not working**: Check MetalLB IP assignment and ingress controller
-   ```bash
-   kubectl get svc -n ingress-nginx ingress-nginx-controller
-   kubectl get ingress -n wordpress
-   ```
-
-4. **FluxCD not syncing**: Check Git repository access and reconciliation
-   ```bash
-   kubectl logs -n flux-system -l app=source-controller
-   flux reconcile source git flux-system
-   ```
-
-5. **SOPS decryption failing**: Verify age key in flux-system namespace
-   ```bash
-   kubectl get secret -n flux-system sops-age -o yaml
-   ```
-
-### Debug Commands
+## Restarting Applications
 
 ```bash
-# Get all resources in namespaces
-kubectl get all -n mysql
-kubectl get all -n wordpress
+# Restart specific deployment
+kubectl rollout restart deployment ingress-nginx-controller -n ingress-nginx
+kubectl rollout restart deployment wordpress -n wordpress
+kubectl rollout restart deployment mysql -n mysql
 
-# Check events
-kubectl get events -n mysql --sort-by='.lastTimestamp'
-kubectl get events -n wordpress --sort-by='.lastTimestamp'
-
-# Test MySQL connection from WordPress pod
-kubectl exec -n wordpress deployment/wordpress -- \
-  sh -c 'nc -zv mysql.mysql.svc.cluster.local 3306'
+# Restart all deployments in a namespace
+kubectl rollout restart deployment -n ingress-nginx
 ```
 
-## Maintenance
+## Accessing the Application
 
-### Updating Secrets
-
-1. Decrypt the secret file:
-   ```bash
-   sops -d clusters/default/apps/mysql/secret.yaml > /tmp/mysql-secret.yaml
-   ```
-
-2. Edit the decrypted file:
-   ```bash
-   # Edit /tmp/mysql-secret.yaml with changes
-   ```
-
-3. Re-encrypt and replace:
-   ```bash
-   sops -e /tmp/mysql-secret.yaml > clusters/default/apps/mysql/secret.yaml
-   rm /tmp/mysql-secret.yaml
-   ```
-
-4. Commit and push changes:
-   ```bash
-   git add clusters/default/apps/mysql/secret.yaml
-   git commit -m "Update MySQL secret"
-   git push
-   ```
-
-5. FluxCD will automatically sync and apply the changes.
-
-### Updating Application Images
-
-Edit the deployment YAML files and update the image tag:
-- `clusters/default/apps/mysql/deployment.yaml` - Update `image: mysql:8.0`
-- `clusters/default/apps/wordpress/deployment.yaml` - Update `image: wordpress:latest`
-
-Commit and push, FluxCD will handle the rollout.
-
-### Scaling Applications
-
-To scale WordPress, update the `replicas` field in `clusters/default/apps/wordpress/deployment.yaml`:
-```yaml
-spec:
-  replicas: 3  # Change from 1 to desired number
-```
-
-**Note**: MySQL is currently configured with `replicas: 1`. For production, consider using a StatefulSet with persistent volumes and proper replication.
-
-## Storage Considerations
-
-Currently, both MySQL and WordPress use `emptyDir` volumes, which means:
-- Data is ephemeral and will be lost when pods are deleted
-- Suitable for development/testing only
-
-For production deployments, consider:
-- Using PersistentVolumes (PV) and PersistentVolumeClaims (PVC)
-- Using a storage class appropriate for k3s setup (e.g., local-path-provisioner)
-- Implementing proper backup strategies
-
-## Security Notes
-
-- Change default passwords in secrets before deploying to production
-- Use strong, unique passwords for database credentials
-- Keep the age private key secure and never commit it to the repository
-- Regularly rotate secrets and keys
-- Consider using external secret management solutions for production
+- **WordPress**: `http://app.local` (or `http://<INGRESS_IP>`)
+- **Test 404 Redirect**: `http://app.local/notfound` (redirects to google.com)
 
 ## License
 
 This is a learning/example project.
-
