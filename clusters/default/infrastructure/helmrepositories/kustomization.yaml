@@ -3,4 +3,6 @@ kind: Kustomization
 resources:
   - ingress-nginx.yaml
   - metallb.yaml
+  - prometheus-community.yaml
+  - grafana.yaml
 

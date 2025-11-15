@@ -1,0 +1,465 @@
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  name: kube-prometheus-stack
+  namespace: monitoring
+spec:
+  interval: 5m0s
+  chart:
+    spec:
+      chart: kube-prometheus-stack
+      sourceRef:
+        kind: HelmRepository
+        name: prometheus-community
+        namespace: flux-system
+      version: "59.0.0"
+  values:
+    # Prometheus configuration
+    prometheus:
+      prometheusSpec:
+        retention: 30d
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 20Gi
+        serviceMonitorSelectorNilUsesHelmValues: false
+        podMonitorSelectorNilUsesHelmValues: false
+        ruleSelectorNilUsesHelmValues: false
+    
+    # Grafana configuration
+    grafana:
+      enabled: true
+      adminUser: admin
+      adminPassword: admin
+      persistence:
+        enabled: true
+        size: 10Gi
+      service:
+        type: ClusterIP
+      ingress:
+        enabled: true
+        ingressClassName: nginx
+        hosts:
+          - app-monitor.local
+        annotations:
+          cert-manager.io/cluster-issuer: ""
+      # Configure Grafana datasources
+      datasources:
+        datasources.yaml:
+          apiVersion: 1
+          datasources:
+            - name: Prometheus
+              type: prometheus
+              access: proxy
+              url: http://kube-prometheus-stack-prometheus.monitoring.svc.cluster.local:9090
+              isDefault: true
+              editable: true
+            - name: Loki
+              type: loki
+              access: proxy
+              url: http://loki.monitoring.svc.cluster.local:3100
+              editable: true
+              jsonData:
+                maxLines: 1000
+      
+      # Configure Grafana dashboards
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+            - name: 'default'
+              orgId: 1
+              folder: ''
+              type: file
+              disableDeletion: false
+              editable: true
+              options:
+                path: /var/lib/grafana/dashboards/default
+      
+      dashboards:
+        default:
+          wordpress-logs:
+            gnetId: 0
+            revision: 0
+            datasource: Loki
+            url: ""
+            json: |
+              {
+                "annotations": {
+                  "list": [
+                    {
+                      "builtIn": 1,
+                      "datasource": {
+                        "type": "grafana",
+                        "uid": "-- Grafana --"
+                      },
+                      "enable": true,
+                      "hide": true,
+                      "iconColor": "rgba(0, 211, 255, 1)",
+                      "name": "Annotations & Alerts",
+                      "type": "dashboard"
+                    }
+                  ]
+                },
+                "editable": true,
+                "fiscalYearStartMonth": 0,
+                "graphTooltip": 0,
+                "id": null,
+                "links": [],
+                "liveNow": false,
+                "panels": [
+                  {
+                    "datasource": {
+                      "type": "loki",
+                      "uid": "loki"
+                    },
+                    "fieldConfig": {
+                      "defaults": {
+                        "custom": {
+                          "align": "auto",
+                          "cellOptions": {
+                            "type": "auto"
+                          },
+                          "inspect": false
+                        },
+                        "mappings": [],
+                        "thresholds": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green",
+                              "value": null
+                            }
+                          ]
+                        }
+                      },
+                      "overrides": []
+                    },
+                    "gridPos": {
+                      "h": 8,
+                      "w": 24,
+                      "x": 0,
+                      "y": 0
+                    },
+                    "id": 1,
+                    "options": {
+                      "cellHeight": "sm",
+                      "footer": {
+                        "countRows": false,
+                        "fields": "",
+                        "reducer": ["sum"],
+                        "show": false
+                      },
+                      "showHeader": true,
+                      "sortBy": []
+                    },
+                    "pluginVersion": "10.0.0",
+                    "targets": [
+                      {
+                        "datasource": {
+                          "type": "loki",
+                          "uid": "loki"
+                        },
+                        "editorMode": "builder",
+                        "expr": "{namespace=\"wordpress\"}",
+                        "queryType": "range",
+                        "refId": "A"
+                      }
+                    ],
+                    "title": "WordPress Pod Logs",
+                    "transformations": [
+                      {
+                        "id": "extractFields",
+                        "options": {
+                          "format": "auto",
+                          "source": "Line"
+                        }
+                      },
+                      {
+                        "id": "organize",
+                        "options": {
+                          "excludeByName": {
+                            "Time": true,
+                            "Line": true,
+                            "labels": true
+                          },
+                          "indexByName": {},
+                          "renameByName": {
+                            "namespace": "Namespace",
+                            "pod": "Pod",
+                            "container": "Container",
+                            "timestamp": "Timestamp",
+                            "level": "Level",
+                            "message": "Message"
+                          }
+                        }
+                      }
+                    ],
+                    "type": "table"
+                  },
+                  {
+                    "datasource": {
+                      "type": "loki",
+                      "uid": "loki"
+                    },
+                    "fieldConfig": {
+                      "defaults": {
+                        "custom": {
+                          "align": "auto",
+                          "displayMode": "list",
+                          "inspect": false
+                        },
+                        "mappings": [],
+                        "thresholds": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green",
+                              "value": null
+                            }
+                          ]
+                        }
+                      },
+                      "overrides": []
+                    },
+                    "gridPos": {
+                      "h": 10,
+                      "w": 24,
+                      "x": 0,
+                      "y": 8
+                    },
+                    "id": 2,
+                    "options": {
+                      "dedupStrategy": "none",
+                      "enableLogDetails": true,
+                      "prettifyLogMessage": false,
+                      "showCommonLabels": false,
+                      "showLabels": false,
+                      "showTime": true,
+                      "sortOrder": "Descending",
+                      "wrapLogMessage": false
+                    },
+                    "targets": [
+                      {
+                        "datasource": {
+                          "type": "loki",
+                          "uid": "loki"
+                        },
+                        "editorMode": "builder",
+                        "expr": "{namespace=\"wordpress\"}",
+                        "queryType": "range",
+                        "refId": "A"
+                      }
+                    ],
+                    "title": "WordPress Log Stream",
+                    "type": "logs"
+                  },
+                  {
+                    "datasource": {
+                      "type": "loki",
+                      "uid": "loki"
+                    },
+                    "fieldConfig": {
+                      "defaults": {
+                        "color": {
+                          "mode": "palette-classic"
+                        },
+                        "custom": {
+                          "axisCenteredZero": false,
+                          "axisColorMode": "text",
+                          "axisLabel": "",
+                          "axisPlacement": "auto",
+                          "barAlignment": 0,
+                          "drawStyle": "line",
+                          "fillOpacity": 10,
+                          "gradientMode": "none",
+                          "hideFrom": {
+                            "tooltip": false,
+                            "viz": false,
+                            "legend": false
+                          },
+                          "lineInterpolation": "linear",
+                          "lineWidth": 1,
+                          "pointSize": 5,
+                          "scaleDistribution": {
+                            "type": "linear"
+                          },
+                          "showPoints": "never",
+                          "spanNulls": false,
+                          "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                          },
+                          "thresholdsStyle": {
+                            "mode": "off"
+                          }
+                        },
+                        "mappings": [],
+                        "thresholds": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green",
+                              "value": null
+                            }
+                          ]
+                        },
+                        "unit": "short"
+                      },
+                      "overrides": []
+                    },
+                    "gridPos": {
+                      "h": 8,
+                      "w": 12,
+                      "x": 0,
+                      "y": 18
+                    },
+                    "id": 3,
+                    "options": {
+                      "legend": {
+                        "calcs": [],
+                        "displayMode": "list",
+                        "placement": "bottom",
+                        "showLegend": true
+                      },
+                      "tooltip": {
+                        "mode": "single",
+                        "sort": "none"
+                      }
+                    },
+                    "targets": [
+                      {
+                        "datasource": {
+                          "type": "loki",
+                          "uid": "loki"
+                        },
+                        "editorMode": "builder",
+                        "expr": "sum(count_over_time({namespace=\"wordpress\"}[1m]))",
+                        "queryType": "range",
+                        "refId": "A"
+                      }
+                    ],
+                    "title": "WordPress Log Rate (logs/min)",
+                    "type": "timeseries"
+                  },
+                  {
+                    "datasource": {
+                      "type": "loki",
+                      "uid": "loki"
+                    },
+                    "fieldConfig": {
+                      "defaults": {
+                        "color": {
+                          "mode": "palette-classic"
+                        },
+                        "custom": {
+                          "axisCenteredZero": false,
+                          "axisColorMode": "text",
+                          "axisLabel": "",
+                          "axisPlacement": "auto",
+                          "barAlignment": 0,
+                          "drawStyle": "line",
+                          "fillOpacity": 10,
+                          "gradientMode": "none",
+                          "hideFrom": {
+                            "tooltip": false,
+                            "viz": false,
+                            "legend": false
+                          },
+                          "lineInterpolation": "linear",
+                          "lineWidth": 1,
+                          "pointSize": 5,
+                          "scaleDistribution": {
+                            "type": "linear"
+                          },
+                          "showPoints": "never",
+                          "spanNulls": false,
+                          "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                          },
+                          "thresholdsStyle": {
+                            "mode": "off"
+                          }
+                        },
+                        "mappings": [],
+                        "thresholds": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green",
+                              "value": null
+                            }
+                          ]
+                        },
+                        "unit": "short"
+                      },
+                      "overrides": []
+                    },
+                    "gridPos": {
+                      "h": 8,
+                      "w": 12,
+                      "x": 12,
+                      "y": 18
+                    },
+                    "id": 4,
+                    "options": {
+                      "legend": {
+                        "calcs": [],
+                        "displayMode": "list",
+                        "placement": "bottom",
+                        "showLegend": true
+                      },
+                      "tooltip": {
+                        "mode": "single",
+                        "sort": "none"
+                      }
+                    },
+                    "targets": [
+                      {
+                        "datasource": {
+                          "type": "loki",
+                          "uid": "loki"
+                        },
+                        "editorMode": "builder",
+                        "expr": "sum(count_over_time({namespace=\"ingress-nginx\"}[1m]))",
+                        "queryType": "range",
+                        "refId": "A"
+                      }
+                    ],
+                    "title": "Ingress-NGINX Log Rate (logs/min)",
+                    "type": "timeseries"
+                  }
+                ],
+                "refresh": "10s",
+                "schemaVersion": 38,
+                "style": "dark",
+                "tags": ["wordpress", "logs", "loki"],
+                "templating": {
+                  "list": []
+                },
+                "time": {
+                  "from": "now-15m",
+                  "to": "now"
+                },
+                "timepicker": {},
+                "timezone": "",
+                "title": "WordPress Pod Logs Dashboard",
+                "uid": "wordpress-logs",
+                "version": 1,
+                "weekStart": ""
+              }
+    
+    # Disable Alertmanager for simplicity
+    alertmanager:
+      enabled: false
+    
+    # Disable default exporters we don't need
+    kubeStateMetrics:
+      enabled: true
+    nodeExporter:
+      enabled: true
+
