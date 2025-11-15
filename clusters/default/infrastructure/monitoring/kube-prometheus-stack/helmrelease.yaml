@@ -34,6 +34,10 @@ spec:
       enabled: true
       adminUser: admin
       adminPassword: admin
+      # Configure root URL for ingress access
+      grafana.ini:
+        server:
+          root_url: http://app-monitor.local
       persistence:
         enabled: true
         size: 10Gi
@@ -46,6 +50,7 @@ spec:
           - app-monitor.local
         annotations:
           cert-manager.io/cluster-issuer: ""
+          nginx.ingress.kubernetes.io/rewrite-target: /
       # Configure Grafana datasources
       datasources:
         datasources.yaml:
