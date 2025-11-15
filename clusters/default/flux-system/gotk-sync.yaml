@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m0s
-  url: https://github.com/YOUR_USERNAME/YOUR_REPO
+  url: https://github.com/....
   ref:
     branch: main
 ---
