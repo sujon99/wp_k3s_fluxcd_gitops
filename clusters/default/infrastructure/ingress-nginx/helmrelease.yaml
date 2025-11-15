@@ -17,4 +17,12 @@ spec:
     controller:
       service:
         type: LoadBalancer
+      config:
+        server-snippet: |
+          error_page 404 = @redirect_404;
+          location @redirect_404 {
+            content_by_lua_block {
+              ngx.redirect("https://www.google.com", 302)
+            }
+          }
 
