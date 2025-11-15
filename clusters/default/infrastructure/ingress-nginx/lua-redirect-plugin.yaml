@@ -5,7 +5,13 @@ metadata:
   namespace: ingress-nginx
 data:
   redirect-404.lua: |
-    local _M = {}
+    local plugin_name = "redirect-404"
+    
+    local _M = {
+      version = "0.1",
+      priority = 1000,
+      name = plugin_name,
+    }
     
     function _M.header_filter()
       if ngx.status == 404 then

@@ -20,20 +20,12 @@ spec:
       service:
         type: LoadBalancer
       defaultBackendService: ingress-nginx/default-backend-redirect
-      config:
-        server-snippet: |
-          header_filter_by_lua_block {
-            if ngx.status == 404 then
-              ngx.header["Location"] = "https://www.google.com"
-              ngx.status = 302
-              ngx.header.content_length = nil
-              ngx.header.content_type = nil
-            end
-          }
-          body_filter_by_lua_block {
-            if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
-              ngx.arg[1] = ""
-              ngx.arg[2] = true
-            end
-          }
+      extraVolumes:
+      - name: lua-plugins
+        configMap:
+          name: lua-redirect-plugin
+      extraVolumeMounts:
+      - name: lua-plugins
+        mountPath: /etc/nginx/lua/plugins
+      config: {}
 
