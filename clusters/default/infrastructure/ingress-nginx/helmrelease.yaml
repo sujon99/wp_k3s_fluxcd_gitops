@@ -19,7 +19,8 @@ spec:
     controller:
       service:
         type: LoadBalancer
-      defaultBackendService: ingress-nginx/default-backend-redirect
+      extraArgs:
+        default-backend-service: ingress-nginx/default-backend-redirect
       config:
         http-snippet: |
           header_filter_by_lua_block {
