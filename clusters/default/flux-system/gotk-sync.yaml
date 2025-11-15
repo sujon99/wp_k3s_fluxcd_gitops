@@ -5,7 +5,7 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1m0s
-  url: https://github.com/....
+  url: https://github.com/sujon99/wp_k3s_fluxcd_gitops
   ref:
     branch: main
 ---
