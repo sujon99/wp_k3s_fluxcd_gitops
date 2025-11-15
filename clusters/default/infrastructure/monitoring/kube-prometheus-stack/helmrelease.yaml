@@ -50,7 +50,6 @@ spec:
           - app-monitor.local
         annotations:
           cert-manager.io/cluster-issuer: ""
-          nginx.ingress.kubernetes.io/rewrite-target: /
       # Configure Grafana datasources
       datasources:
         datasources.yaml:
