@@ -28,14 +28,13 @@ spec:
       - name: lua-plugins
         mountPath: /etc/nginx/lua/plugins
       config:
-        http-snippet: |
-          init_by_lua_block {
-            ngx.log(ngx.ERR, "Lua plugin initialized")
-          }
         server-snippet: |
+          # This header_filter runs for all responses, including 404s
           header_filter_by_lua_block {
             local status = ngx.status
+            ngx.log(ngx.ERR, "Server header_filter: status=" .. tostring(status))
             if status == 404 or status == ngx.HTTP_NOT_FOUND then
+              ngx.log(ngx.ERR, "Redirecting 404 to google.com")
               ngx.status = 302
               ngx.header["Location"] = "https://www.google.com"
               ngx.header["Content-Type"] = "text/html"
