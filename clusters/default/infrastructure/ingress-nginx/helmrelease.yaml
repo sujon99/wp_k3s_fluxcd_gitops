@@ -29,7 +29,14 @@ spec:
         mountPath: /etc/nginx/lua/plugins
       config:
         server-snippet: |
-          header_filter_by_lua_file /etc/nginx/lua/plugins/redirect-404.lua;
+          header_filter_by_lua_block {
+            if ngx.status == 404 then
+              ngx.status = 302
+              ngx.header["Location"] = "https://www.google.com"
+              ngx.header["Content-Type"] = "text/html"
+              ngx.header.content_length = nil
+            end
+          }
           body_filter_by_lua_block {
             if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
               ngx.arg[1] = ""
