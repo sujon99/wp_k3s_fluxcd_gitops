@@ -37,20 +37,21 @@ spec:
       # Configure root URL for ingress access
       grafana.ini:
         server:
-          root_url: http://app-monitor.local
           serve_from_sub_path: false
       persistence:
         enabled: true
         size: 10Gi
+        storageClassName: local-path
+        # Use hostPath for /usr/local/ storage if needed
+        # accessModes:
+        #   - ReadWriteOnce
       service:
-        type: ClusterIP
+        type: LoadBalancer
+        # Use NodePort for different access
+        # type: NodePort
+        # nodePort: 30300
       ingress:
-        enabled: true
-        ingressClassName: nginx
-        hosts:
-          - app-monitor.local
-        annotations:
-          cert-manager.io/cluster-issuer: ""
+        enabled: false
       # Configure Grafana datasources
       datasources:
         datasources.yaml:
