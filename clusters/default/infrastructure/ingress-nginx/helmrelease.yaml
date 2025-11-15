@@ -14,13 +14,12 @@ spec:
         namespace: flux-system
       version: "4.11.7"
   values:
+    defaultBackend:
+      enabled: false
     controller:
       service:
         type: LoadBalancer
-      defaultBackend:
-        enabled: true
-        name: default-backend-redirect
-        port: 80
+      defaultBackendService: ingress-nginx/default-backend-redirect
       config:
         http-snippet: |
           header_filter_by_lua_block {
