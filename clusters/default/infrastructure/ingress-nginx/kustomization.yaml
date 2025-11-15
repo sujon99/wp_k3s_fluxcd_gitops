@@ -4,5 +4,6 @@ namespace: ingress-nginx
 resources:
   - namespace.yaml
   - default-backend.yaml
+  - lua-redirect-plugin.yaml
   - helmrelease.yaml
 

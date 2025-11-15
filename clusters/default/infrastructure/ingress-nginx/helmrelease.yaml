@@ -14,22 +14,10 @@ spec:
         namespace: flux-system
       version: "4.11.7"
   values:
+    defaultBackend:
+      enabled: false
     controller:
       service:
         type: LoadBalancer
-      config:
-        server-snippet: |
-          header_filter_by_lua_block {
-            if ngx.status == 404 then
-              ngx.header["Content-Type"] = "text/html"
-              ngx.header["Content-Length"] = nil
-            end
-          }
-          body_filter_by_lua_block {
-            if ngx.status == 404 then
-              local html = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://www.google.com\"></head><body><script>window.location.href=\"https://www.google.com\";</script><p>Redirecting to <a href=\"https://www.google.com\">Google</a>...</p></body></html>"
-              ngx.arg[1] = html
-              ngx.arg[2] = true
-            end
-          }
+      defaultBackendService: ingress-nginx/default-backend-redirect
 
