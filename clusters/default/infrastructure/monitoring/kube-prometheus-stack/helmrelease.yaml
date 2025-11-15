@@ -38,6 +38,7 @@ spec:
       grafana.ini:
         server:
           root_url: http://app-monitor.local
+          serve_from_sub_path: false
       persistence:
         enabled: true
         size: 10Gi
