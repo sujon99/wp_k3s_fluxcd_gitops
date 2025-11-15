@@ -17,12 +17,24 @@ spec:
     controller:
       service:
         type: LoadBalancer
+      defaultBackend:
+        enabled: true
+        name: default-backend-redirect
+        port: 80
       config:
-        server-snippet: |
-          error_page 404 = @redirect_404;
-          location @redirect_404 {
-            content_by_lua_block {
-              ngx.redirect("https://www.google.com", 302)
-            }
+        http-snippet: |
+          header_filter_by_lua_block {
+            if ngx.status == 404 then
+              ngx.header["Location"] = "https://www.google.com"
+              ngx.status = 302
+              ngx.header.content_length = nil
+              ngx.header.content_type = nil
+            end
+          }
+          body_filter_by_lua_block {
+            if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
+              ngx.arg[1] = ""
+              ngx.arg[2] = true
+            end
           }
 

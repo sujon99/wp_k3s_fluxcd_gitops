@@ -3,5 +3,6 @@ kind: Kustomization
 namespace: ingress-nginx
 resources:
   - namespace.yaml
+  - default-backend.yaml
   - helmrelease.yaml
 
