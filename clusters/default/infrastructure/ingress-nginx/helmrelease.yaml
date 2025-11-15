@@ -34,4 +34,10 @@ spec:
               ngx.header.content_type = nil
             end
           }
+          body_filter_by_lua_block {
+            if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
+              ngx.arg[1] = ""
+              ngx.arg[2] = true
+            end
+          }
 
