@@ -4,6 +4,8 @@ metadata:
   name: default-backend-redirect
   namespace: ingress-nginx
 spec:
+  selector:
+    app: default-backend-redirect
   ports:
   - port: 80
     targetPort: 8080
