@@ -466,10 +466,12 @@ spec:
       hostPID: true
       hostIPC: true
       hostNetwork: true
+      # For k3s compatibility
       extraArgs:
         - --path.procfs=/host/proc
         - --path.sysfs=/host/sys
         - --path.rootfs=/rootfs
+        - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
       extraHostVolumeMounts:
         - name: proc
           mountPath: /host/proc
@@ -483,4 +485,10 @@ spec:
           mountPath: /rootfs
           readOnly: true
           hostPath: /
+      # Security context for k3s
+      securityContext:
+        runAsNonRoot: false
+        runAsUser: 0
+      containerSecurityContext:
+        privileged: true
 
