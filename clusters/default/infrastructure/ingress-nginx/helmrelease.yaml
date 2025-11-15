@@ -18,14 +18,20 @@ spec:
       service:
         type: LoadBalancer
       config:
-        server-snippet: |
-          error_page 404 = @redirect_404;
-          location @redirect_404 {
-            rewrite_by_lua_block {
-              ngx.redirect("https://www.google.com", 302)
-            }
-          }
         http-snippet: |
+          init_by_lua_block {
+            local original_header_filter = header_filter_by_lua_block
+          }
+          header_filter_by_lua_block {
+            if ngx.status == 404 then
+              ngx.header["Location"] = "https://www.google.com"
+              ngx.status = 302
+              ngx.header.content_length = nil
+              ngx.header.content_type = nil
+              return
+            end
+          }
+        server-snippet: |
           header_filter_by_lua_block {
             if ngx.status == 404 then
               ngx.header["Location"] = "https://www.google.com"
