@@ -28,17 +28,8 @@ spec:
       - name: lua-plugins
         mountPath: /etc/nginx/lua/plugins
       config:
-        lua-package-path: "/etc/nginx/lua/plugins/?.lua;;"
-        http-snippet: |
-          init_by_lua_block {
-            redirect_404 = require("redirect-404")
-          }
         server-snippet: |
-          header_filter_by_lua_block {
-            if redirect_404() then
-              ngx.header.content_length = 0
-            end
-          }
+          header_filter_by_lua_file /etc/nginx/lua/plugins/redirect-404.lua;
           body_filter_by_lua_block {
             if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
               ngx.arg[1] = ""

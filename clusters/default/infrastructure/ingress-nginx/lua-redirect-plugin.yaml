@@ -6,16 +6,10 @@ metadata:
 data:
   redirect-404.lua: |
     -- Redirect 404 responses to google.com
-    local function redirect_404()
-      if ngx.status == 404 then
-        ngx.status = 302
-        ngx.header["Location"] = "https://www.google.com"
-        ngx.header["Content-Type"] = "text/html"
-        ngx.header.content_length = nil
-        return true
-      end
-      return false
+    if ngx.status == 404 then
+      ngx.status = 302
+      ngx.header["Location"] = "https://www.google.com"
+      ngx.header["Content-Type"] = "text/html"
+      ngx.header.content_length = nil
     end
-    
-    return redirect_404
 
