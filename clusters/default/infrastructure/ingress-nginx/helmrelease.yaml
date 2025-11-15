@@ -28,13 +28,19 @@ spec:
       - name: lua-plugins
         mountPath: /etc/nginx/lua/plugins
       config:
-        server-snippet: |
-          # This header_filter runs for all responses, including 404s
+        location-snippet: |
+          # Override header_filter to include 404 redirect
           header_filter_by_lua_block {
+            -- Run the original ingress-nginx header filter logic
+            if lua_ingress and lua_ingress.header then
+              lua_ingress.header()
+            end
+            if plugins and plugins.run then
+              plugins.run()
+            end
+            -- Then check for 404 and redirect
             local status = ngx.status
-            ngx.log(ngx.ERR, "Server header_filter: status=" .. tostring(status))
             if status == 404 or status == ngx.HTTP_NOT_FOUND then
-              ngx.log(ngx.ERR, "Redirecting 404 to google.com")
               ngx.status = 302
               ngx.header["Location"] = "https://www.google.com"
               ngx.header["Content-Type"] = "text/html"
@@ -42,7 +48,13 @@ spec:
               ngx.header["Cache-Control"] = "no-cache"
             end
           }
+          # Override body_filter to clear body for redirects
           body_filter_by_lua_block {
+            -- Run original body filter
+            if plugins and plugins.run then
+              plugins.run()
+            end
+            -- Clear body for redirects
             if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
               ngx.arg[1] = ""
               ngx.arg[2] = true
