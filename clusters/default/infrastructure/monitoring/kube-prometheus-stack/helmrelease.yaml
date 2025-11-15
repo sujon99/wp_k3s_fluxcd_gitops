@@ -466,12 +466,13 @@ spec:
       hostPID: true
       hostIPC: true
       hostNetwork: true
-      # Disable rootfs mount to avoid mount propagation issues in k3s
-      hostRootFsMount: false
+      # Use /usr/local/ instead of / to avoid mount propagation issues in k3s
+      hostRootfs: /usr/local/
       # For k3s compatibility
       extraArgs:
         - --path.procfs=/host/proc
         - --path.sysfs=/host/sys
+        - --path.rootfs=/host/root
         - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
       extraHostVolumeMounts:
         - name: proc
