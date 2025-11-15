@@ -14,14 +14,17 @@ spec:
         namespace: flux-system
       version: "4.11.7"
   values:
-    defaultBackend:
-      enabled: false
     controller:
       service:
         type: LoadBalancer
-      extraArgs:
-        default-backend-service: ingress-nginx/default-backend-redirect
       config:
+        server-snippet: |
+          error_page 404 = @redirect_404;
+          location @redirect_404 {
+            rewrite_by_lua_block {
+              ngx.redirect("https://www.google.com", 302)
+            }
+          }
         http-snippet: |
           header_filter_by_lua_block {
             if ngx.status == 404 then
@@ -29,12 +32,6 @@ spec:
               ngx.status = 302
               ngx.header.content_length = nil
               ngx.header.content_type = nil
-            end
-          }
-          body_filter_by_lua_block {
-            if ngx.status == 302 and ngx.header["Location"] == "https://www.google.com" then
-              ngx.arg[1] = ""
-              ngx.arg[2] = true
             end
           }
 
