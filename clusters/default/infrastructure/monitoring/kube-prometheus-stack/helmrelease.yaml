@@ -470,7 +470,6 @@ spec:
       extraArgs:
         - --path.procfs=/host/proc
         - --path.sysfs=/host/sys
-        - --path.rootfs=/rootfs
         - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
       extraHostVolumeMounts:
         - name: proc
@@ -481,10 +480,6 @@ spec:
           mountPath: /host/sys
           readOnly: true
           hostPath: /sys
-        - name: rootfs
-          mountPath: /rootfs
-          readOnly: true
-          hostPath: /
       # Security context for k3s
       securityContext:
         runAsNonRoot: false
