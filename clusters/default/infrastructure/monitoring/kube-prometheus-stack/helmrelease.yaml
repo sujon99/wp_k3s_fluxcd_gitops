@@ -466,6 +466,8 @@ spec:
       hostPID: true
       hostIPC: true
       hostNetwork: true
+      # Disable rootfs mount to avoid mount propagation issues in k3s
+      hostRootFsMount: false
       # For k3s compatibility
       extraArgs:
         - --path.procfs=/host/proc
