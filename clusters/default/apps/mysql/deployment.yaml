@@ -1,9 +1,10 @@
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: mysql
   namespace: mysql
 spec:
+  serviceName: mysql
   replicas: 1
   selector:
     matchLabels:
@@ -39,27 +40,35 @@ spec:
               key: MYSQL_PASSWORD
         ports:
         - containerPort: 3306
-        lifecycle:
-          postStart:
-            exec:
-              command:
-              - /bin/bash
-              - -c
-              - |
-                sleep 10
-                until mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD --silent; do
-                  echo "Waiting for MySQL to be ready..."
-                  sleep 2
-                done
-                mysql -h localhost -uroot -p$MYSQL_ROOT_PASSWORD <<EOF
-                CREATE USER IF NOT EXISTS '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';
-                GRANT ALL PRIVILEGES ON $MYSQL_DATABASE.* TO '$MYSQL_USER'@'%';
-                FLUSH PRIVILEGES;
-                EOF
+          name: mysql
         volumeMounts:
         - name: mysql-storage
           mountPath: /var/lib/mysql
-      volumes:
-      - name: mysql-storage
-        emptyDir: {}
-
+        livenessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD --silent
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - /bin/bash
+            - -c
+            - mysqladmin ping -h localhost -uroot -p$MYSQL_ROOT_PASSWORD --silent
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+  volumeClaimTemplates:
+  - metadata:
+      name: mysql-storage
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      storageClassName: local-path
+      resources:
+        requests:
+          storage: 20Gi

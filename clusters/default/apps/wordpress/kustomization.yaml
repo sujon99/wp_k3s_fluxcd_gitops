@@ -3,7 +3,8 @@ kind: Kustomization
 namespace: wordpress
 resources:
   - namespace.yaml
-  - secret.yaml
+  - secret-sync.yaml
+  - pvc.yaml
   - deployment.yaml
   - service.yaml
   - ingress.yaml
