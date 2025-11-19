@@ -65,6 +65,12 @@ spec:
   volumeClaimTemplates:
   - metadata:
       name: mysql-storage
+      labels:
+        app: mysql
+        backup: "true"
+      annotations:
+        backup.velero.io/backup-volumes: "mysql-storage"
+        description: "MySQL database persistent storage"
     spec:
       accessModes:
       - ReadWriteOnce

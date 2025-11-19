@@ -1,10 +1,19 @@
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sops-age
-  namespace: flux-system
-type: Opaque
-stringData:
-  age.agekey: |
-    AGE-SECRET-KEY-1TW8W0G4ZZ0GDUGZ4DS0YY6WZYQG4JKMCJ869XKVQXGY4RR96S9UQ0UKRHW
+# SOPS Age Secret - DO NOT COMMIT THE PRIVATE KEY TO GIT
+# This file is a placeholder. The actual secret must be created manually.
+#
+# To create the secret, use:
+# kubectl create secret generic sops-age \
+#   --namespace=flux-system \
+#   --from-literal=age.agekey='AGE-SECRET-KEY-YOUR-PRIVATE-KEY-HERE'
+#
+# Or apply a secret file (not committed to Git):
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: sops-age
+#   namespace: flux-system
+# type: Opaque
+# stringData:
+#   age.agekey: |
+#     AGE-SECRET-KEY-YOUR-PRIVATE-KEY-HERE
 

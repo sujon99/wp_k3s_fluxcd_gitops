@@ -3,6 +3,12 @@ kind: PersistentVolumeClaim
 metadata:
   name: wordpress-storage
   namespace: wordpress
+  labels:
+    app: wordpress
+    backup: "true"
+  annotations:
+    backup.velero.io/backup-volumes: "wordpress-storage"
+    description: "WordPress application data and uploads"
 spec:
   accessModes:
     - ReadWriteOnce

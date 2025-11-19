@@ -73,9 +73,41 @@ sudo kubectl get nodes
 curl -s https://fluxcd.io/install.sh | sudo bash
 ```
 
-### 3. Configure Secrets
+### 3. Configure SOPS Age Secret
 
-Update `clusters/default/flux-system/sops.yaml` with your Age private key.
+**IMPORTANT**: The Age private key is NOT stored in Git for security reasons. You must create it manually.
+
+#### Generate Age Key Pair (if you don't have one):
+
+```bash
+# Install age
+# Linux: apt-get install age or pacman -S age
+# macOS: brew install age
+# Windows: scoop install age or download from https://github.com/FiloSottile/age/releases
+
+# Generate age key pair
+age-keygen -o age.key
+
+# Display public key (add this to .sops.yaml)
+age-keygen -y age.key
+```
+
+#### Create the SOPS Secret in Kubernetes:
+
+```bash
+# Create flux-system namespace first
+kubectl create namespace flux-system
+
+# Create the sops-age secret from your age private key file
+kubectl create secret generic sops-age \
+  --namespace=flux-system \
+  --from-file=age.agekey=age.key
+
+# Verify the secret was created
+kubectl get secret sops-age -n flux-system
+```
+
+**Note**: Keep your `age.key` file secure and do NOT commit it to Git.
 
 ### 4. Update Configuration Files
 
@@ -264,6 +296,85 @@ kubectl rollout restart deployment -n ingress-nginx
 
 - **WordPress**: `http://app.local` (or `http://<INGRESS_IP>`)
 - **Test 404 Redirect**: `http://app.local/notfound` (redirects to google.com)
+
+## Backup and Restore
+
+Both WordPress and MySQL PVCs are configured with backup annotations for Velero integration.
+
+### Prerequisites
+
+Install Velero in your cluster:
+
+```bash
+# Install Velero CLI
+# Linux/macOS:
+wget https://github.com/vmware-tanzu/velero/releases/latest/download/velero-linux-amd64.tar.gz
+tar -xvf velero-linux-amd64.tar.gz
+sudo mv velero-linux-amd64/velero /usr/local/bin/
+
+# Windows: Download from https://github.com/vmware-tanzu/velero/releases
+
+# Install Velero in cluster (example with local storage)
+velero install \
+  --provider aws \
+  --plugins velero/velero-plugin-for-aws:v1.8.0 \
+  --bucket velero-backups \
+  --secret-file ./credentials-velero \
+  --use-volume-snapshots=false \
+  --backup-location-config region=minio,s3ForcePathStyle="true",s3Url=http://minio.velero.svc:9000
+```
+
+### Backup WordPress and MySQL
+
+```bash
+# Backup entire wordpress namespace (includes PVC)
+velero backup create wordpress-backup --include-namespaces wordpress
+
+# Backup entire mysql namespace (includes PVC)
+velero backup create mysql-backup --include-namespaces mysql
+
+# Backup both namespaces together
+velero backup create full-backup --include-namespaces wordpress,mysql
+
+# Check backup status
+velero backup describe wordpress-backup
+velero backup get
+```
+
+### Restore from Backup
+
+```bash
+# Restore WordPress
+velero restore create --from-backup wordpress-backup
+
+# Restore MySQL
+velero restore create --from-backup mysql-backup
+
+# Restore full backup
+velero restore create --from-backup full-backup
+
+# Check restore status
+velero restore get
+velero restore describe <restore-name>
+```
+
+### Manual PVC Backup (Alternative)
+
+If not using Velero, manually backup PVC data:
+
+```bash
+# Backup WordPress PVC
+kubectl exec -n wordpress deployment/wordpress -- tar czf - /var/www/html > wordpress-backup.tar.gz
+
+# Backup MySQL data (requires shell access to pod)
+kubectl exec -n mysql statefulset/mysql -- mysqldump -uroot -p$MYSQL_ROOT_PASSWORD --all-databases > mysql-backup.sql
+
+# Restore WordPress
+kubectl exec -n wordpress deployment/wordpress -i -- tar xzf - -C /var/www/html < wordpress-backup.tar.gz
+
+# Restore MySQL
+kubectl exec -n mysql statefulset/mysql -i -- mysql -uroot -p$MYSQL_ROOT_PASSWORD < mysql-backup.sql
+```
 
 ## License
 
